@@ -12,7 +12,7 @@ app.get('/', function (appReq, appResp) {
     let url = appReq.query.url;
 
     if (!url) {
-        appResp.status(400).send('URL not set');
+        appResp.status(400).send({ error: 'URL not set' });
         return;
     } else if (!url.match('^(http|https|ftp)://.*$')) {
         let protocol = 'http://';
@@ -28,7 +28,7 @@ app.get('/', function (appReq, appResp) {
 
     req.on('error', (error) => {
         console.error(error);
-        appResp.status(400).send(error.message);
+        appResp.status(400).send({ error: error.message, url: url });
     });
 
     req.on('response', (res) => {
