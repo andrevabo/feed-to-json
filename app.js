@@ -8,56 +8,58 @@ app.use(cors());
 module.exports.app = app;
 app.set('port', (process.env.PORT || 5000));
 
-const testing = [];
-app.get('/', function (req1, res1) {
-    let url = req1.query.url;
-    if (!url.match("^(http|https|ftp)://.*$")) {
+app.get('/', function (appReq, appResp) {
+    let url = appReq.query.url;
+
+    if (!url) {
+        appResp.status(400).send('URL not set');
+        return;
+    } else if (!url.match('^(http|https|ftp)://.*$')) {
         let protocol = 'http://';
-        if (url.indexOf('//') == 0)
+        if (url.indexOf('//') === 0)
             protocol = 'http:';
         url = protocol + url;
     }
+
     const req = request(url);
     const feedparser = new FeedParser();
 
     const collection = [];
 
-    req.on('error', function (error) {
+    req.on('error', (error) => {
         console.error(error);
+        appResp.status(400).send(error.message);
     });
 
-    req.on('response', function (res) {
-        const stream = this;
-
+    req.on('response', (res) => {
         if (res.statusCode !== 200) {
-            this.emit('error', new Error('Bad status code'));
+            req.emit('error', new Error('Bad status code'));
         } else {
-            stream.pipe(feedparser);
+            req.pipe(feedparser);
         }
     });
-    feedparser.on('error', function (error) {
+
+    feedparser.on('error', (error) => {
         console.error(error);
+        appResp.status(400).send(error.message);
     });
 
-    feedparser.on('readable', function () {
-        const stream = this;
-        const meta = this.meta;
+    feedparser.on('readable', () => {
         let item;
-        while (item = stream.read()) {
+        while (item = feedparser.read()) {
             collection.push(item);
         }
     });
 
-    feedparser.on('end', function () {
-        const stream = this;
-        const meta = this.meta;
-        const finalResponse = {};
-        finalResponse.entries = collection;
-        finalResponse.meta = meta;
-        res1.send(finalResponse);
+    feedparser.on('end', () => {
+        const meta = appReq.meta;
+        appResp.send({
+            entries: collection,
+            meta,
+        });
     });
 });
 
-app.listen(app.get('port'), function () {
+app.listen(app.get('port'), () => {
     console.log('Node app is running on port', app.get('port'));
 });
